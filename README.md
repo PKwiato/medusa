@@ -76,6 +76,15 @@ If you see an error like `open //./pipe/dockerDesktopLinuxEngine: The system can
 - **Check Engine Type**: If you are on Windows, ensure "Use the WSL 2 based engine" is enabled in Settings > General.
 - **Restart Docker**: Sometimes restarting the Docker Desktop application resolves pipe connection issues.
 
+If you see an error like `The server does not support SSL connections`:
+- **SSL is already disabled**: I've updated the `docker-compose.yml` with `?sslmode=disable`. If you still see this, ensure you are using the latest version of the `docker-compose.yml` file and that no local `.env` file is overriding the container settings.
+
+If you see an error like `bind: Only one usage of each socket address is normally permitted`:
+- **Stop Local Services**: You have the Medusa backend running locally (outside of Docker). **Stop all terminals where you ran `npm run dev`** before starting Docker. Both the backend (port 9000) and frontend (port 5173) must be available for Docker to bind to them.
+
+### 🔄 Database Migrations
+The Docker setup now automatically runs migrations (`npx medusa db:migrate`) on startup. This ensures the database schema is created inside the PostgreSQL container.
+
 **Note**: The first run will take a few minutes to build the images and initialize the database.
 
 ---

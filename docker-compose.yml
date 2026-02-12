@@ -19,10 +19,15 @@ services:
     ports:
       - "9000:9000"
     environment:
-      - DATABASE_URL=postgres://postgres@postgres:5432/medusa-db
+      - DATABASE_URL=postgres://postgres@postgres:5432/medusa-db?sslmode=disable
+      - JWT_SECRET=supersecret
+      - COOKIE_SECRET=supersecret
       - STORE_CORS=http://localhost:5173,http://127.0.0.1:5173
       - ADMIN_CORS=http://localhost:5173,http://127.0.0.1:5173
       - AUTH_CORS=http://localhost:5173,http://127.0.0.1:5173
+      - MEDUSA_BACKEND_URL=http://localhost:9000
+      - MEDUSA_ADMIN_ONBOARDING_TYPE=default
+    command: sh -c "npx medusa db:migrate && npm run start"
     depends_on:
       postgres:
         condition: service_healthy

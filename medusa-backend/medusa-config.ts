@@ -12,5 +12,9 @@ module.exports = defineConfig({
       jwtSecret: process.env.JWT_SECRET || "supersecret",
       cookieSecret: process.env.COOKIE_SECRET || "supersecret",
     }
+  },
+  admin: {
+    disable: false,
+    backendUrl: process.env.MEDUSA_BACKEND_URL || "http://localhost:9000",
   }
 })

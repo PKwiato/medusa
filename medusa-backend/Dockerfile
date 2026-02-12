@@ -19,7 +19,13 @@ RUN npm install
 COPY . .
 
 # Build the project
-RUN npm run build
+ENV NODE_ENV=production
+ENV MEDUSA_ADMIN_ONBOARDING_TYPE=default
+RUN npx medusa build
+# Copy built admin to the location Medusa expects it at runtime
+RUN cp -r .medusa/server/public /app/public
+# Verify admin build exists in the new location
+RUN ls -la /app/public/admin/index.html
 
 # Expose the API port
 EXPOSE 9000
