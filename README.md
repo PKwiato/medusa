@@ -2,25 +2,66 @@
 
 This project is a Proof of Concept (POC) demonstrating a high-performance e-commerce marketplace built with **Medusa.js 2.0** and **Vue 3**.
 
-## 🚀 Access Information
+## 🚀 Correct Access Information
 
 ### Storefront (Vue 3)
-*   **URL**: [http://127.0.0.1:5173](http://127.0.0.1:5173)
-*   **Description**: Modern, flashy frontend with product listing, cart functionality, and premium animations.
+*   **URL**: [http://localhost:5173](http://localhost:5173)
+*   **Description**: Modern frontend with product listing, cart, and checkout.
+*   **Note**: If products are missing, ensure the backend has finished its "v5" seeding process.
 
 ### Admin Dashboard (Medusa built-in)
 *   **URL**: [http://localhost:9000/app](http://localhost:9000/app)
-*   **Login**: `admin@me.com` (if created)
-*   **Password**: `password` (if created)
-*   **Setup Note**: If you haven't created a user yet, run:
-    ```powershell
-    cd medusa-backend
-    npx medusa user --email admin@me.com --password password
-    ```
+*   **Login**: `admin@me.com`
+*   **Password**: `password`
+*   **Note**: The first login might take a moment as the app initializes.
 
 ### Backend API
 *   **Base URL**: `http://localhost:9000`
-*   **CORS**: Configured to allow both `localhost` and `127.0.0.1`.
+*   **Health Check**: [http://localhost:9000/health](http://localhost:9000/health)
+
+---
+
+## ⚡ Fresh Setup (Recommended)
+
+To ensure all fixes (API key synchronization, Admin panel access) are applied, use the following commands to start the project from a clean state:
+
+```powershell
+# Stop existing containers and remove volumes (optional but recommended for fresh start)
+docker-compose down -v
+
+# Rebuild and start the containers
+docker-compose up --build
+```
+
+**What to expect:**
+1.  **Build Phase**: Docker will build the `medusa-backend` and `medusa-frontend` images. This may take 2-3 minutes.
+2.  **Startup Phase**: The backend container will run a startup script (`startup.sh`).
+    *   It will run database migrations.
+    *   It will seed the database with demo data (Regions, Products, etc.).
+    *   **Crucially**, it will force-sync the Publishable API Key to match the frontend hardcoded key (`pk_04...`).
+    *   It will ensure the Admin User (`admin@me.com`) exists.
+
+Watch the logs for: `First time setup (v5): Initializing data...` and `Forced API Key token to match frontend default.`
+
+---
+
+## 🛠️ Recent Fixes & Troubleshooting
+
+### 1. Storefront "Publishable Key" Error
+**Issue:** The Storefront was expecting a hardcoded API key (`pk_04...`) but the backend was generating a random one on each startup.
+**Fix:** The `seed.ts` script now includes a raw SQL command to **force update** the generated key to match the frontend expectation. This ensures products load immediately without manual configuration.
+
+### 2. Admin Panel "401 Unauthorized"
+**Issue:** The Admin panel requires "Secure" cookies by default, which fails on `http://localhost`.
+**Fix:** We added `NODE_ENV=development` to the backend environment in `docker-compose.yml`. This relaxes the cookie security requirements for local development.
+
+### 3. Admin Build Failures
+**Issue:** The Admin panel build was failing with Vite import errors (`Failed to resolve import "/src/admin/i18n/index.ts"`).
+**Fix:** We removed the corrupt `src/admin` scaffold directory, allowing Medusa to use its default, working Admin panel build.
+
+### 4. Idempotent Startup
+**Issue:** Restarting the container would sometimes crash or duplicate data.
+**Fix:** We implemented a versioned flag system (`.medusa_seeded_v5`). The startup script checks for this flag and only runs the heavy seeding logic if it hasn't run for this version.
 
 ---
 
@@ -34,58 +75,20 @@ This project is a Proof of Concept (POC) demonstrating a high-performance e-comm
 
 ---
 
-## 🛠️ Project Structure
-
-*   `/medusa-backend`: Medusa.js 2.0 Core (Node.js)
-*   `/vue-storefront`: Vite + Vue 3 Frontend
-*   `task.md`: Development progress tracker
-
-## ⚡ Quick Commands
-
-**Starting the Backend:**
-```powershell
-cd medusa-backend
-npm run dev
-```
-
-**Starting the Frontend:**
-```powershell
-cd vue-storefront
-npm run dev
-```
-
 ## 🐳 Docker Deployment
 
-The entire stack can be launched using Docker Compose.
+The entire stack is containerized.
+-   **Backend**: Node 20, Medusa 2.0
+-   **Frontend**: Nginx serving built Vue 3 static assets
+-   **Database**: PostgreSQL 17
 
-**Prerequisites:**
-- Docker Desktop installed and **running**.
+### Common Docker Issues
 
-**Steps:**
-1. From the project root, run:
-   ```bash
-   docker-compose up --build
-   ```
-2. The services will be available at:
-   - **Storefront**: [http://localhost:5173](http://localhost:5173)
-   - **Backend/Admin**: [http://localhost:9000](http://localhost:9000)
+**"bind: Only one usage of each socket address is normally permitted"**
+-   **Solution**: Stop any local instances of Node/Medusa running on your machine (ports 9000 or 5173).
 
-### ❓ Troubleshooting Docker
-If you see an error like `open //./pipe/dockerDesktopLinuxEngine: The system cannot find the file specified`:
-- **Ensure Docker Desktop is running**: Open the Docker Desktop application and wait for the "Engine started" (green icon) status.
-- **Check Engine Type**: If you are on Windows, ensure "Use the WSL 2 based engine" is enabled in Settings > General.
-- **Restart Docker**: Sometimes restarting the Docker Desktop application resolves pipe connection issues.
-
-If you see an error like `The server does not support SSL connections`:
-- **SSL is already disabled**: I've updated the `docker-compose.yml` with `?sslmode=disable`. If you still see this, ensure you are using the latest version of the `docker-compose.yml` file and that no local `.env` file is overriding the container settings.
-
-If you see an error like `bind: Only one usage of each socket address is normally permitted`:
-- **Stop Local Services**: You have the Medusa backend running locally (outside of Docker). **Stop all terminals where you ran `npm run dev`** before starting Docker. Both the backend (port 9000) and frontend (port 5173) must be available for Docker to bind to them.
-
-### 🔄 Database Migrations
-The Docker setup now automatically runs migrations (`npx medusa db:migrate`) on startup. This ensures the database schema is created inside the PostgreSQL container.
-
-**Note**: The first run will take a few minutes to build the images and initialize the database.
+**"The server does not support SSL connections"**
+-   **Solution**: This is handled by `?sslmode=disable` in the connection string. Ensure you are using the latest `docker-compose.yml`.
 
 ---
 **Developed with Antigravity**
