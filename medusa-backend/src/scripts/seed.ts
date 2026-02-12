@@ -87,6 +87,62 @@ export default async function seedDemoData({ container }: ExecArgs) {
     defaultSalesChannel = salesChannelResult;
   }
 
+  logger.info("Seeding publishable API key data...");
+  let publishableApiKey: ApiKey | null = null;
+  const { data } = await query.graph({
+    entity: "api_key",
+    fields: ["id"],
+    filters: {
+      type: "publishable",
+    },
+  });
+
+  publishableApiKey = data?.[0];
+
+  if (!publishableApiKey) {
+    const {
+      result: [publishableApiKeyResult],
+    } = await createApiKeysWorkflow(container).run({
+      input: {
+        api_keys: [
+          {
+            title: "Webshop",
+            type: "publishable",
+            created_by: "",
+          },
+        ],
+      },
+    });
+    publishableApiKey = publishableApiKeyResult as ApiKey;
+  }
+
+  // Force the token to match the frontend hardcoded value using raw SQL
+  try {
+    const pgConnection = container.resolve(ContainerRegistrationKeys.PG_CONNECTION) as any;
+    // Assuming pgConnection is Knex or has query method
+    if (pgConnection.raw) {
+      await pgConnection.raw(
+        `UPDATE api_key SET token = 'pk_04f29094f6e64d4dea001b6899224a07c35d774798fd8fe18636cd196381e9b4' WHERE id = ?`,
+        [publishableApiKey!.id]
+      );
+    } else {
+      await pgConnection.query(
+        `UPDATE api_key SET token = 'pk_04f29094f6e64d4dea001b6899224a07c35d774798fd8fe18636cd196381e9b4' WHERE id = '${publishableApiKey!.id}'`
+      );
+    }
+    logger.info("Forced API Key token to match frontend default.");
+  } catch (e: any) {
+    logger.warn(`Failed to force API key token: ${e.message}`);
+  }
+
+  await linkSalesChannelsToApiKeyWorkflow(container).run({
+    input: {
+      id: publishableApiKey.id,
+      add: [defaultSalesChannel[0].id],
+    },
+  });
+  logger.info("Finished seeding publishable API key data.");
+
   await updateStoreCurrencies(container).run({
     input: {
       store_id: store.id,
@@ -111,29 +167,42 @@ export default async function seedDemoData({ container }: ExecArgs) {
     },
   });
   logger.info("Seeding region data...");
-  const { result: regionResult } = await createRegionsWorkflow(container).run({
-    input: {
-      regions: [
-        {
-          name: "Europe",
-          currency_code: "eur",
-          countries,
-          payment_providers: ["pp_system_default"],
-        },
-      ],
-    },
-  });
-  const region = regionResult[0];
-  logger.info("Finished seeding regions.");
+  const regionModuleService = container.resolve(Modules.REGION);
+  const existingRegions = await regionModuleService.listRegions();
+
+  let region;
+  if (existingRegions.length) {
+    logger.info("Regions already seeded, skipping region creation.");
+    region = existingRegions[0];
+  } else {
+    const { result: regionResult } = await createRegionsWorkflow(container).run({
+      input: {
+        regions: [
+          {
+            name: "Europe",
+            currency_code: "eur",
+            countries,
+            payment_providers: ["pp_system_default"],
+          },
+        ],
+      },
+    });
+    region = regionResult[0];
+    logger.info("Finished seeding regions.");
+  }
 
   logger.info("Seeding tax regions...");
-  await createTaxRegionsWorkflow(container).run({
-    input: countries.map((country_code) => ({
-      country_code,
-      provider_id: "tp_system",
-    })),
-  });
-  logger.info("Finished seeding tax regions.");
+  try {
+    await createTaxRegionsWorkflow(container).run({
+      input: countries.map((country_code) => ({
+        country_code,
+        provider_id: "tp_system",
+      })),
+    });
+    logger.info("Finished seeding tax regions.");
+  } catch (e: any) {
+    logger.warn(`Skipping tax regions seeding: ${e.message}`);
+  }
 
   logger.info("Seeding stock location data...");
   const { result: stockLocationResult } = await createStockLocationsWorkflow(
@@ -332,43 +401,6 @@ export default async function seedDemoData({ container }: ExecArgs) {
   });
   logger.info("Finished seeding stock location data.");
 
-  logger.info("Seeding publishable API key data...");
-  let publishableApiKey: ApiKey | null = null;
-  const { data } = await query.graph({
-    entity: "api_key",
-    fields: ["id"],
-    filters: {
-      type: "publishable",
-    },
-  });
-
-  publishableApiKey = data?.[0];
-
-  if (!publishableApiKey) {
-    const {
-      result: [publishableApiKeyResult],
-    } = await createApiKeysWorkflow(container).run({
-      input: {
-        api_keys: [
-          {
-            title: "Webshop",
-            type: "publishable",
-            created_by: "",
-          },
-        ],
-      },
-    });
-
-    publishableApiKey = publishableApiKeyResult as ApiKey;
-  }
-
-  await linkSalesChannelsToApiKeyWorkflow(container).run({
-    input: {
-      id: publishableApiKey.id,
-      add: [defaultSalesChannel[0].id],
-    },
-  });
-  logger.info("Finished seeding publishable API key data.");
 
   logger.info("Seeding product data...");
 

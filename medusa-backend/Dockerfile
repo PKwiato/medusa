@@ -30,5 +30,9 @@ RUN ls -la /app/public/admin/index.html
 # Expose the API port
 EXPOSE 9000
 
+# Copy and prepare startup script
+COPY startup.sh .
+RUN chmod +x startup.sh
+
 # Start the application
-CMD ["npm", "run", "start"]
+CMD ["./startup.sh"]
