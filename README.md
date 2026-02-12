@@ -52,12 +52,14 @@ npm run dev
 ```powershell
 cd vue-storefront
 npm run dev
+```
+
 ## 🐳 Docker Deployment
 
 The entire stack can be launched using Docker Compose.
 
 **Prerequisites:**
-- Docker and Docker Compose installed.
+- Docker Desktop installed and **running**.
 
 **Steps:**
 1. From the project root, run:
@@ -67,6 +69,12 @@ The entire stack can be launched using Docker Compose.
 2. The services will be available at:
    - **Storefront**: [http://localhost:5173](http://localhost:5173)
    - **Backend/Admin**: [http://localhost:9000](http://localhost:9000)
+
+### ❓ Troubleshooting Docker
+If you see an error like `open //./pipe/dockerDesktopLinuxEngine: The system cannot find the file specified`:
+- **Ensure Docker Desktop is running**: Open the Docker Desktop application and wait for the "Engine started" (green icon) status.
+- **Check Engine Type**: If you are on Windows, ensure "Use the WSL 2 based engine" is enabled in Settings > General.
+- **Restart Docker**: Sometimes restarting the Docker Desktop application resolves pipe connection issues.
 
 **Note**: The first run will take a few minutes to build the images and initialize the database.
 
